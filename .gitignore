@@ -1,0 +1,28 @@
+# 環境
+.venv/
+.venvs/
+__pycache__/
+*.pyc
+.DS_Store
+
+# 生成物・キャッシュ
+cache/
+outputs/
+tests/dummy/
+tests/cache/
+tests/outputs*/
+wrong_fold*.csv
+results/
+
+# データ・重み
+*.npy
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.pth
+*.pt
+*.safetensors
+
+# 例外: VadCLIP の BPE 語彙（同梱が必要）
+!third_party/vadclip/clip/bpe_simple_vocab_16e6.txt.gz

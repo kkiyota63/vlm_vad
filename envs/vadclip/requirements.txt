@@ -1,0 +1,13 @@
+# VadCLIP 用（CLIP は third_party/vadclip/clip を同梱しているので pip 不要）
+torch>=2.1
+torchvision
+numpy
+scipy
+scikit-learn
+pandas
+opencv-python-headless
+pillow
+ftfy
+regex
+tqdm
+packaging
