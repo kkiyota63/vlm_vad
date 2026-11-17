@@ -1,2 +1,0 @@
-# 公式実装と同じ vLLM バックエンド（CUDA のみ。torch のバージョンは vllm に合わせて入る）
-vllm

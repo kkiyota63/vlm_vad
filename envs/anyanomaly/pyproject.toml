@@ -1,0 +1,25 @@
+[project]
+name = "vlm-vad-anyanomaly"
+version = "0"
+requires-python = "==3.10.*"
+dependencies = [
+    "torch==2.1.2",
+    "torchvision==0.16.2",
+    "transformers==4.40.0",
+    "accelerate==0.30.1",
+    "sentencepiece==0.1.99",
+    "timm==0.9.10",
+    "Pillow==10.1.0",
+    "numpy==1.24.4",
+    "matplotlib==3.7.4",
+    "scipy",
+    "h5py",
+    "fastprogress",
+    "scikit-learn",
+    "openai-clip",
+    "opencv-python==4.10.0.84",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
