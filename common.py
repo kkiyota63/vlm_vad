@@ -6,10 +6,10 @@ import re
 import numpy as np
 import sklearn.metrics
 
-DATA_DIR = pathlib.Path('/home/jovyan/work/toyota2026/data')
-LABEL_DIR = DATA_DIR / 'label'
-SPLIT_DIR = DATA_DIR / 'splits'
-VIDEO_DIR = DATA_DIR / 'videos'
+DATA_DIR = pathlib.Path('/home/jovyan/work/toyota2026')
+LABEL_DIR = DATA_DIR / 'data/label'
+SPLIT_DIR = DATA_DIR / 'data/splits'
+VIDEO_DIR = DATA_DIR / 'movie'
 VIDEO_EXT = '.mp4'
 
 ROOT = pathlib.Path(__file__).resolve().parent
