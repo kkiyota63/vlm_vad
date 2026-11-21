@@ -8,7 +8,7 @@ import torch
 
 import common
 
-ANOMALY_TYPE = None
+ANOMALY_TYPE = 'worker squatting down-worker bending over to pick up something from the floor'
 BASE_DATASET = 'shtech'
 MODEL_PATH = 'MiniCPM-Llama3-V-2_5'
 
