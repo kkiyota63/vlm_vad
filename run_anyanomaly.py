@@ -1,4 +1,5 @@
 import argparse
+import functools
 import os
 import sys
 
@@ -28,6 +29,9 @@ from functions.MiniCPM_func import load_lvlm, lvlm_test, make_instruction
 from functions.attn_func import winclip_attention
 from functions.grid_func import grid_generation
 from functions.key_func import KFS
+from tqdm import tqdm
+from transformers import AutoProcessor, logging
+logging.set_verbosity_error()
 
 
 def main():
@@ -43,15 +47,16 @@ def main():
     if todo:
         device = torch.device("cuda")
         tokenizer, model = load_lvlm(cfg.model_path, device)
+        model.chat = functools.partial(model.chat, processor=AutoProcessor.from_pretrained(f"openbmb/{cfg.model_path}", trust_remote_code=True))
         clip_model, preprocess = clip.load('ViT-B/32', device=device)
         kfs = KFS(cfg.kfs_num, cfg.clip_length, clip_model, preprocess, device)
 
-    for n in todo:
+    for n in tqdm(todo, desc="videos", position=0):
         num_frames = common.extract_frames(n)
         cp_loader = clip_path_loader(str(common.FRAME_DIR / n), cfg.clip_length)
         predicted, predicted_wa, predicted_tc = [], [], []
 
-        for c in range(len(cp_loader)):
+        for c in tqdm(range(len(cp_loader)), desc=n, position=1, leave=False):
             cp = cp_loader[c]
             max_score = 0
             max_score_wa = 0
