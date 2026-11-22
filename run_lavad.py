@@ -4,6 +4,7 @@ import sys
 import time
 
 import numpy as np
+from huggingface_hub import snapshot_download
 from tqdm import tqdm
 
 import common
@@ -15,7 +16,14 @@ CAPTION_FRAME_INTERVAL = 16
 NUM_NEIGHBORS = 10
 LLM_MODEL = "llama-2-13b-chat"
 LLM_NPROC = 2
-CAP_MODELS = ["blip2-opt-6.7b-coco", "blip2-opt-6.7b", "blip2-flan-t5-xxl", "blip2-flan-t5-xl", "blip2-flan-t5-xl-coco"]
+CAP_MODEL_REVISIONS = {
+    "blip2-opt-6.7b-coco": "0d580de59320a25a4d2c386387bcef310d5f286e",
+    "blip2-opt-6.7b": "1d33d60155fd1323b97556e0f1dd5148a9749f5b",
+    "blip2-flan-t5-xxl": "43206cbc865b9d5b3dd7d080e5d94b4143ca8e74",
+    "blip2-flan-t5-xl": "e5025a34e3e769e72e2aab7f7bfd00bc84d5fd77",
+    "blip2-flan-t5-xl-coco": "c58d19751a8039a7e5ca4ba08ad3a5ad3740f266",
+}
+CAP_MODELS = list(CAP_MODEL_REVISIONS)
 CONTEXT_PROMPT = "If you were a law enforcement agency, how would you rate the scene described on a scale from 0 to 1, with 0 representing a standard scene and 1 denoting a scene with suspicious activities?"
 FORMAT_PROMPT = "Please provide the response in the form of a Python list and respond with only one number in the provided list below [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] without any textual explanation. It should begin with '[' and end with  ']'."
 SUMMARY_PROMPT = "Please summarize what happened in few sentences, based on the following temporal description of a scene. Do not include any unnecessary details or descriptions."
@@ -58,9 +66,10 @@ def main():
         torchrun = ["-m", "torch.distributed.run", "--nproc_per_node", LLM_NPROC, "--nnodes", 1, "-m", "src.models.llm_anomaly_scorer"]
 
         for i, m in enumerate(CAP_MODELS, 1):
+            model_dir = snapshot_download(f"Salesforce/{m}", revision=CAP_MODEL_REVISIONS[m], ignore_patterns=["pytorch_model*"])
             run(f"1/6 caption {i}/{len(CAP_MODELS)} {m}", todo, raw_caps / m, ".json",
                 "-m", "src.models.image_captioner", *data, "--frame_interval", CAPTION_FRAME_INTERVAL,
-                "--pretrained_model_name", f"Salesforce/{m}", "--output_dir", raw_caps / m)
+                "--pretrained_model_name", model_dir, "--output_dir", raw_caps / m)
         run("2/6 caption index", todo, WORK / 'index' / 'captions', ".bin",
             "-m", "src.models.create_index", *base, "--index_dim", 1024, "--output_dir", WORK / 'index' / 'captions',
             "--captions_dirs", *[raw_caps / m for m in CAP_MODELS])
