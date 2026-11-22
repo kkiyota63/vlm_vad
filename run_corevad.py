@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPO / 'src' / 'ucf'))
 
 import clip
 from decord import VideoReader, cpu
+from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 import extract_clip_features as ecf
 import generate_VLM_response as gen
@@ -40,11 +41,11 @@ def main():
     if todo:
         ecf.device = device
         clip_model = ecf.load_clip(device="cuda", model_name="ViT-B/16")
-        for n in todo:
+        for n in tqdm(todo, desc="CLIP features", position=0):
             vr = VideoReader(str(common.video_path(n)), ctx=cpu(0), num_threads=1)
             feats = [ecf.get_clip_frame_features(vr, list(range(i, min(i + CLIP_CHUNK, len(vr)))), clip_model,
                                                  batch_size=8, input_size=224, max_num=1).cpu().numpy()
-                     for i in range(0, len(vr), CLIP_CHUNK)]
+                     for i in tqdm(range(0, len(vr), CLIP_CHUNK), desc=n, position=1, leave=False)]
             np.save(FEAT_DIR / f"{n}_CLIP_features.npy", np.concatenate(feats))
         del clip_model
 
@@ -69,7 +70,7 @@ def main():
     clip_model, _ = clip.load("ViT-B/16", device=device)
     clip_model.eval()
     cleaned = json.loads(LRC_PATH.read_text(encoding="utf-8"))
-    for n in names:
+    for n in tqdm(names, desc="Scoring"):
         num_frames = len(np.load(FEAT_DIR / f"{n}_CLIP_features.npy", mmap_mode='r'))
         score = eval_ucf.process_video(video=n, clean_response=cleaned[n], clip_feature_root_test=str(FEAT_DIR),
                                        vr_len=num_frames, clip_model=clip_model, device=device,
