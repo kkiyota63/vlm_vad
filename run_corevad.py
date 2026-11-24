@@ -8,7 +8,6 @@ import torch
 
 import common
 
-MLLM_PATH = 'OpenGVLab/InternVL2-8B'
 CLIP_CHUNK = 512
 PROMPT_PATH = common.ROOT / 'prompts' / 'corevad_squat.txt'
 
@@ -22,7 +21,7 @@ sys.path.insert(0, str(REPO / 'src' / 'ucf'))
 import clip
 from decord import VideoReader, cpu
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer
+import qwen_vlm
 import extract_clip_features as ecf
 import generate_VLM_response as gen
 import LRC
@@ -54,14 +53,22 @@ def main():
     todo = [n for n in names if n not in done]
     if todo:
         prompt = PROMPT_PATH.read_text(encoding='utf-8')
-        model = AutoModel.from_pretrained(MLLM_PATH, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
-            use_flash_attn=True, trust_remote_code=True).to(device).eval()
-        tokenizer = AutoTokenizer.from_pretrained(MLLM_PATH, trust_remote_code=True, use_fast=False)
-        gen.test([str(common.video_path(n)) for n in todo], model, tokenizer, dict(max_new_tokens=1024, do_sample=False),
-                 prompt, device, save_name="VLM_responses_ucf")
+        model, processor = qwen_vlm.load(device)
+        RESPONSE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        for n in tqdm(todo, desc="VLM responses", position=0):
+            vr = VideoReader(str(common.video_path(n)), ctx=cpu(0), num_threads=1)
+            try:
+                texts = []
+                for chunk in tqdm(gen.build_second_chunks(len(vr), 30, 8), desc=n, position=1, leave=False):
+                    text = qwen_vlm.describe(model, processor, vr, chunk, prompt).strip().split("\n")
+                    texts.append(text[1].strip() + " " + text[2].strip())
+            except Exception as e:
+                print(f"[WARN] Eval failed on {n}: {e}")
+                continue
+            done[n] = texts
+            RESPONSE_PATH.write_text(json.dumps(done, ensure_ascii=False, indent=2), encoding="utf-8")
         del model
         torch.cuda.empty_cache()
-        done = json.loads(RESPONSE_PATH.read_text(encoding="utf-8"))
         failed = [n for n in names if n not in done]
         if failed:
             raise RuntimeError(f"VLM 応答の生成に失敗した動画: {failed}")

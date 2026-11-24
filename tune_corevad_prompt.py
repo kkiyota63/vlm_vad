@@ -6,8 +6,6 @@ import torch
 
 import common
 
-MLLM_PATH = 'OpenGVLab/InternVL2-8B'
-REFLECTION_PATH = 'Qwen/Qwen2.5-14B-Instruct'
 SEGMENT_LEN = 30
 NUM_PER_SEGMENT = 8
 NUM_TRAIN = 100
@@ -65,7 +63,7 @@ import gepa
 from decord import VideoReader, cpu
 from gepa.core.adapter import EvaluationBatch
 from tqdm import tqdm
-from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
+import qwen_vlm
 import generate_VLM_response as gen
 
 
@@ -109,10 +107,9 @@ def build_dataset():
 class CoReVADAdapter:
     propose_new_texts = None
 
-    def __init__(self, model, tokenizer, device):
+    def __init__(self, model, processor):
         self.model = model
-        self.tokenizer = tokenizer
-        self.device = device
+        self.processor = processor
         self.cache = {}
 
     def predict(self, instruction, seg):
@@ -120,10 +117,8 @@ class CoReVADAdapter:
         if key not in self.cache:
             vr = VideoReader(str(common.video_path(seg["video"])), ctx=cpu(0), num_threads=1)
             chunk = gen.build_second_chunks(len(vr), SEGMENT_LEN, NUM_PER_SEGMENT)[seg["segment"]]
-            pixel_values, num_patches = gen.get_pixel_values(vr, chunk)
             prompt = TEMPLATE.replace('<instruction>', instruction)
-            self.cache[key] = gen.make_VLM_response(self.model, self.tokenizer, dict(max_new_tokens=1024, do_sample=False),
-                                                    pixel_values, num_patches, self.device, prompt)
+            self.cache[key] = qwen_vlm.describe(self.model, self.processor, vr, chunk, prompt)
         return self.cache[key]
 
     def evaluate(self, batch, candidate, capture_traces=False):
@@ -158,26 +153,16 @@ class CoReVADAdapter:
 
 def main():
     trainset, valset = build_dataset()
-    device = torch.device('cuda:0')
-    model = AutoModel.from_pretrained(MLLM_PATH, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
-        use_flash_attn=True, trust_remote_code=True).to(device).eval()
-    tokenizer = AutoTokenizer.from_pretrained(MLLM_PATH, trust_remote_code=True, use_fast=False)
+    model, processor = qwen_vlm.load(torch.device('cuda:0'))
 
-    r_model = AutoModelForCausalLM.from_pretrained(REFLECTION_PATH, torch_dtype=torch.bfloat16, device_map="auto").eval()
-    r_tokenizer = AutoTokenizer.from_pretrained(REFLECTION_PATH)
-
-    @torch.no_grad()
     def reflection_lm(prompt):
-        ids = r_tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
-                                              return_tensors="pt").to(r_model.device)
-        out = r_model.generate(ids, attention_mask=torch.ones_like(ids), max_new_tokens=1024, do_sample=False)
-        return r_tokenizer.decode(out[0, ids.shape[1]:], skip_special_tokens=True)
+        return qwen_vlm.generate(model, processor, prompt)
 
     result = gepa.optimize(
         seed_candidate={"instruction": SEED_INSTRUCTION}, trainset=trainset, valset=valset,
-        adapter=CoReVADAdapter(model, tokenizer, device), reflection_lm=reflection_lm,
+        adapter=CoReVADAdapter(model, processor), reflection_lm=reflection_lm,
         reflection_prompt_template=REFLECTION_TEMPLATE, reflection_minibatch_size=MINIBATCH_SIZE,
-        max_metric_calls=MAX_METRIC_CALLS, run_dir=str(WORK / 'run' / REFLECTION_PATH.split('/')[-1]),
+        max_metric_calls=MAX_METRIC_CALLS, run_dir=str(WORK / 'run' / qwen_vlm.VLM_PATH.split('/')[-1]),
         display_progress_bar=True, seed=SEED)
 
     best = result.best_candidate["instruction"]
