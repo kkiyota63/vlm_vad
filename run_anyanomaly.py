@@ -12,12 +12,15 @@ import qwen_vlm
 
 ANOMALY_TYPE = 'A worker crouches or reaches down to pick up something below'
 BASE_DATASET = 'shtech'
-MODEL_PATH = 'Qwen/Qwen2.5-VL-7B-Instruct'
+MODEL_PATH = 'Qwen/Qwen3.5-27B'
+QUANTIZATION = '8bit'
 KEY_FRAME_ONLY = True
+THRESHOLD = 0.5
 
 REPO = common.ROOT / 'third_party' / 'anyanomaly'
 WORK = common.WORK_DIR / 'anyanomaly'
 USE_QWEN = MODEL_PATH.startswith('Qwen/')
+USE_QWEN35 = MODEL_PATH.startswith('Qwen/Qwen3.5')
 SCORE_DIR = WORK / ('scores' + ('_keyframe' if KEY_FRAME_ONLY else '') + ('_' + MODEL_PATH.split('/')[-1] if USE_QWEN else ''))
 SCORE_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(WORK)
@@ -47,6 +50,30 @@ def qwen_test(model, processor, instruction, image_path, image=None):
     return qwen_vlm.generate(model, processor, qwen_vlm.IMAGE_TOKEN + '\n' + instruction, [image], max_new_tokens=64)
 
 
+def load_qwen35():
+    from transformers import AutoModelForMultimodalLM, BitsAndBytesConfig
+    quant = {
+        '8bit': BitsAndBytesConfig(load_in_8bit=True, llm_int8_skip_modules=['visual', 'lm_head']),
+        '4bit': BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4', bnb_4bit_compute_dtype=torch.bfloat16,
+                                   llm_int8_skip_modules=['visual', 'lm_head']),
+    }.get(QUANTIZATION)
+    model = AutoModelForMultimodalLM.from_pretrained(MODEL_PATH, dtype=torch.bfloat16, quantization_config=quant, device_map={'': 0}).eval()
+    return model, AutoProcessor.from_pretrained(MODEL_PATH)
+
+
+@torch.no_grad()
+def qwen35_test(model, processor, instruction, image_path, image=None):
+    if image is None:
+        image = Image.open(image_path)
+    image = image.convert('RGB')
+    image.thumbnail((qwen_vlm.IMAGE_SIZE, qwen_vlm.IMAGE_SIZE))
+    msgs = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": instruction}]}]
+    text = processor.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    inputs = processor(text=[text], images=[image], return_tensors="pt").to(model.device)
+    out = model.generate(**inputs, max_new_tokens=64, do_sample=False)
+    return processor.batch_decode(out[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0]
+
+
 def main():
     assert ANOMALY_TYPE, "ANOMALY_TYPE に検出したい異常のテキストを設定してください"
     cfg = update_config(argparse.Namespace(
@@ -59,7 +86,10 @@ def main():
     todo = [n for n in common.video_names() if not (SCORE_DIR / f"{n}.npy").exists()]
     if todo:
         device = torch.device("cuda")
-        if USE_QWEN:
+        if USE_QWEN35:
+            model, processor = load_qwen35()
+            lvlm = functools.partial(qwen35_test, model, processor)
+        elif USE_QWEN:
             qwen_vlm.VLM_PATH = MODEL_PATH
             model, processor = qwen_vlm.load(device)
             lvlm = functools.partial(qwen_test, model, processor)
@@ -123,7 +153,7 @@ def main():
         np.save(SCORE_DIR / f"{n}.npy", score)
         (SCORE_DIR / f"{n}.json").write_text(json.dumps(log, ensure_ascii=False, indent=1))
 
-    common.cross_validate(SCORE_DIR)
+    common.cross_validate(SCORE_DIR, THRESHOLD)
 
 
 if __name__ == "__main__":

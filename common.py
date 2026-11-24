@@ -119,12 +119,15 @@ def load_score_and_label(score_dir, file_name, is_anomaly):
     return score[:t], lab[:t]
 
 
-def cross_validate(score_dir):
+def cross_validate(score_dir, fixed_threshold=None):
     fold_list, file_to_label = folds()
     fold_scores = {"accuracy":[], "ROC_AUC":[], "PR_AUC":[], "F1":[]}
     for fold_idx, (test_files, cal_files) in enumerate(fold_list):
-        cal_scores = np.concatenate([load_score_and_label(score_dir, f, False)[0] for f in cal_files])
-        threshold = float(np.percentile(cal_scores, 100 * (1 - CONTAMINATION)))
+        if fixed_threshold is None:
+            cal_scores = np.concatenate([load_score_and_label(score_dir, f, False)[0] for f in cal_files])
+            threshold = float(np.percentile(cal_scores, 100 * (1 - CONTAMINATION)))
+        else:
+            threshold = fixed_threshold
 
         results = [load_score_and_label(score_dir, f, bool(file_to_label[f])) for f in test_files]
         score = np.concatenate([r[0] for r in results])
