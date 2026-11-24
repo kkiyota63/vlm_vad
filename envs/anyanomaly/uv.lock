@@ -608,15 +608,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3f/81/26d701ef9fface424b4ca808a5c5674df645ac46447720a540143d11c41e/openai-clip-1.0.1.tar.gz", hash = "sha256:cd40bf2f205c096c49524fcbff484339f793b52afd6e7ffad80a2fe108151721", size = 1371625, upload-time = "2022-07-19T12:56:52.824Z" }
 
 [[package]]
-name = "opencv-python"
+name = "opencv-python-headless"
 version = "4.10.0.84"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/e7/b70a2d9ab205110d715906fc8ec83fbb00404aeb3a37a0654fdb68eb0c8c/opencv-python-4.10.0.84.tar.gz", hash = "sha256:72d234e4582e9658ffea8e9cae5b63d488ad06994ef12d81dc303b17472f3526", size = 95103981, upload-time = "2024-06-17T18:29:56.757Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2f/7e/d20f68a5f1487adf19d74378d349932a386b1ece3be9be9915e5986db468/opencv-python-headless-4.10.0.84.tar.gz", hash = "sha256:f2017c6101d7c2ef8d7bc3b414c37ff7f54d64413a1847d89970b6b7069b4e1a", size = 95117755, upload-time = "2024-06-17T18:32:15.606Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/a4/d2537f47fd7fcfba966bd806e3ec18e7ee1681056d4b0a9c8d983983e4d5/opencv_python-4.10.0.84-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9ace140fc6d647fbe1c692bcb2abce768973491222c067c131d80957c595b71f", size = 62548253, upload-time = "2024-06-17T18:29:43.659Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/09/248f86a404567303cdf120e4a301f389b68e3b18e5c0cc428de327da609c/opencv_python_headless-4.10.0.84-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:377d08a7e48a1405b5e84afcbe4798464ce7ee17081c1c23619c8b398ff18295", size = 49858781, upload-time = "2024-06-17T18:31:49.495Z" },
 ]
 
 [[package]]
@@ -1136,7 +1136,7 @@ dependencies = [
     { name = "matplotlib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "openai-clip", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "opencv-python", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "opencv-python-headless", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pillow", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "scikit-learn", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "scipy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1158,7 +1158,7 @@ requires-dist = [
     { name = "matplotlib" },
     { name = "numpy", specifier = "<2" },
     { name = "openai-clip" },
-    { name = "opencv-python", specifier = "==4.10.0.84" },
+    { name = "opencv-python-headless", specifier = "==4.10.0.84" },
     { name = "pillow" },
     { name = "scikit-learn" },
     { name = "scipy" },
