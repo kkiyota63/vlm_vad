@@ -10,6 +10,7 @@ import common
 
 MLLM_PATH = 'OpenGVLab/InternVL2-8B'
 CLIP_CHUNK = 512
+PROMPT_PATH = common.ROOT / 'prompts' / 'corevad_squat.txt'
 
 REPO = common.ROOT / 'third_party' / 'corevad'
 WORK = common.WORK_DIR / 'corevad'
@@ -52,7 +53,7 @@ def main():
     done = json.loads(RESPONSE_PATH.read_text(encoding="utf-8")) if RESPONSE_PATH.exists() else {}
     todo = [n for n in names if n not in done]
     if todo:
-        prompt = (REPO / 'P_VLM_format.txt').read_text(encoding='utf-8')
+        prompt = PROMPT_PATH.read_text(encoding='utf-8')
         model = AutoModel.from_pretrained(MLLM_PATH, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
             use_flash_attn=True, trust_remote_code=True).to(device).eval()
         tokenizer = AutoTokenizer.from_pretrained(MLLM_PATH, trust_remote_code=True, use_fast=False)
