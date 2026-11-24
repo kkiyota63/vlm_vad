@@ -7,6 +7,7 @@ import torch
 import common
 
 MLLM_PATH = 'OpenGVLab/InternVL2-8B'
+REFLECTION_PATH = 'Qwen/Qwen2.5-14B-Instruct'
 SEGMENT_LEN = 30
 NUM_PER_SEGMENT = 8
 NUM_TRAIN = 100
@@ -64,7 +65,7 @@ import gepa
 from decord import VideoReader, cpu
 from gepa.core.adapter import EvaluationBatch
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 import generate_VLM_response as gen
 
 
@@ -147,7 +148,8 @@ class CoReVADAdapter:
                 feedback = f"Incorrect: the model answered {'Anomalous' if pred else 'Normal'}. Ground truth: {truth}."
             outputs.append(response)
             scores.append(score)
-            trajectories.append({"Generated Outputs": response, "Feedback": feedback})
+            text = "\n".join(l for l in response.strip().split("\n") if not l.strip().startswith("```"))
+            trajectories.append({"Generated Outputs": text, "Feedback": feedback})
         return EvaluationBatch(outputs=outputs, scores=scores, trajectories=trajectories if capture_traces else None)
 
     def make_reflective_dataset(self, candidate, eval_batch, components_to_update):
@@ -161,14 +163,22 @@ def main():
         use_flash_attn=True, trust_remote_code=True).to(device).eval()
     tokenizer = AutoTokenizer.from_pretrained(MLLM_PATH, trust_remote_code=True, use_fast=False)
 
+    r_model = AutoModelForCausalLM.from_pretrained(REFLECTION_PATH, torch_dtype=torch.bfloat16, device_map="auto").eval()
+    r_tokenizer = AutoTokenizer.from_pretrained(REFLECTION_PATH)
+
+    @torch.no_grad()
     def reflection_lm(prompt):
-        return model.chat(tokenizer, None, prompt, dict(max_new_tokens=1024, do_sample=False))
+        ids = r_tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
+                                              return_tensors="pt").to(r_model.device)
+        out = r_model.generate(ids, attention_mask=torch.ones_like(ids), max_new_tokens=1024, do_sample=False)
+        return r_tokenizer.decode(out[0, ids.shape[1]:], skip_special_tokens=True)
 
     result = gepa.optimize(
         seed_candidate={"instruction": SEED_INSTRUCTION}, trainset=trainset, valset=valset,
         adapter=CoReVADAdapter(model, tokenizer, device), reflection_lm=reflection_lm,
         reflection_prompt_template=REFLECTION_TEMPLATE, reflection_minibatch_size=MINIBATCH_SIZE,
-        max_metric_calls=MAX_METRIC_CALLS, run_dir=str(WORK / 'run'), display_progress_bar=True, seed=SEED)
+        max_metric_calls=MAX_METRIC_CALLS, run_dir=str(WORK / 'run' / REFLECTION_PATH.split('/')[-1]),
+        display_progress_bar=True, seed=SEED)
 
     best = result.best_candidate["instruction"]
     OUT_PATH.write_text(TEMPLATE.replace('<instruction>', best) + "\n", encoding='utf-8')
