@@ -17,12 +17,14 @@ MODEL_PATH = 'Qwen/Qwen3.5-27B'
 QUANTIZATION = '8bit'
 KEY_FRAME_ONLY = True
 THRESHOLD = 0.5
+PROMPT_PATH = None
 
 REPO = common.ROOT / 'third_party' / 'anyanomaly'
 WORK = common.WORK_DIR / 'anyanomaly'
 USE_QWEN = MODEL_PATH.startswith('Qwen/')
 USE_QWEN35 = MODEL_PATH.startswith('Qwen/Qwen3.5')
-SCORE_DIR = WORK / ('scores' + ('_keyframe' if KEY_FRAME_ONLY else '') + ('_' + MODEL_PATH.split('/')[-1] if USE_QWEN else ''))
+SCORE_DIR = WORK / ('scores' + ('_keyframe' if KEY_FRAME_ONLY else '') + ('_' + MODEL_PATH.split('/')[-1] if USE_QWEN else '')
+                    + ('_' + PROMPT_PATH.stem if PROMPT_PATH else ''))
 SCORE_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(WORK)
 sys.path.insert(0, str(REPO))
@@ -116,6 +118,8 @@ def main():
 
             for k_i, keyword in enumerate(keyword_list):
                 instruction, instruction_tc = make_instruction(cfg, keyword, True)
+                if PROMPT_PATH:
+                    instruction = PROMPT_PATH.read_text(encoding='utf-8')
 
                 indice = kfs.call_function(cp, keyword)
                 key_image_path = cp[indice[0]]

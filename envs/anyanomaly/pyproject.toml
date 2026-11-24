@@ -9,6 +9,7 @@ dependencies = [
     "accelerate",
     "bitsandbytes==0.50.2",
     "flash-linear-attention",
+    "gepa==0.1.4",
     "sentencepiece",
     "timm",
     "Pillow",
