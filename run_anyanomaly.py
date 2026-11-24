@@ -1,5 +1,6 @@
 import argparse
 import functools
+import json
 import os
 import sys
 
@@ -73,6 +74,7 @@ def main():
         num_frames = common.extract_frames(n)
         cp_loader = clip_path_loader(str(common.FRAME_DIR / n), cfg.clip_length)
         predicted, predicted_wa, predicted_tc = [], [], []
+        log = []
 
         for c in tqdm(range(len(cp_loader)), desc=n, position=1, leave=False):
             cp = cp_loader[c]
@@ -89,6 +91,7 @@ def main():
 
                 response = lvlm(instruction, key_image_path, None)
                 max_score = max(max_score, generate_output(response)['score'])
+                log.append({'clip': c, 'keyword': keyword, 'key_frame': key_image_path, 'response': response})
                 if KEY_FRAME_ONLY:
                     continue
 
@@ -118,6 +121,7 @@ def main():
         score = gaussian_filter1d(score, sigma=cfg.sigma)
         score = np.pad(score, (0, num_frames - len(score)), mode='edge')
         np.save(SCORE_DIR / f"{n}.npy", score)
+        (SCORE_DIR / f"{n}.json").write_text(json.dumps(log, ensure_ascii=False, indent=1))
 
     common.cross_validate(SCORE_DIR)
 
