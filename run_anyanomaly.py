@@ -10,7 +10,7 @@ import torch
 import common
 import qwen_vlm
 
-ANOMALY_TYPE = 'worker squatting down-worker bending over to pick up something from the floor'
+ANOMALY_TYPE = 'A worker crouches or reaches down to pick up something below'
 BASE_DATASET = 'shtech'
 MODEL_PATH = 'Qwen/Qwen2.5-VL-7B-Instruct'
 KEY_FRAME_ONLY = True
