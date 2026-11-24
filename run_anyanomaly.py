@@ -2,8 +2,8 @@ import argparse
 import functools
 import json
 import os
+import logging as std_logging
 import sys
-import warnings
 
 import numpy as np
 import torch
@@ -41,7 +41,7 @@ from PIL import Image
 from tqdm import tqdm
 from transformers import AutoProcessor, logging
 logging.set_verbosity_error()
-warnings.filterwarnings('ignore', message='MatMul8bitLt')
+std_logging.getLogger('bitsandbytes').setLevel(std_logging.ERROR)
 
 
 def qwen_test(model, processor, instruction, image_path, image=None):
