@@ -7,15 +7,17 @@ import numpy as np
 import torch
 
 import common
+import qwen_vlm
 
 ANOMALY_TYPE = 'worker squatting down-worker bending over to pick up something from the floor'
 BASE_DATASET = 'shtech'
-MODEL_PATH = 'MiniCPM-Llama3-V-2_5'
+MODEL_PATH = 'Qwen/Qwen2.5-VL-7B-Instruct'
 KEY_FRAME_ONLY = True
 
 REPO = common.ROOT / 'third_party' / 'anyanomaly'
 WORK = common.WORK_DIR / 'anyanomaly'
-SCORE_DIR = WORK / ('scores_keyframe' if KEY_FRAME_ONLY else 'scores')
+USE_QWEN = MODEL_PATH.startswith('Qwen/')
+SCORE_DIR = WORK / ('scores' + ('_keyframe' if KEY_FRAME_ONLY else '') + ('_' + MODEL_PATH.split('/')[-1] if USE_QWEN else ''))
 SCORE_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(WORK)
 sys.path.insert(0, str(REPO))
@@ -30,9 +32,18 @@ from functions.MiniCPM_func import load_lvlm, lvlm_test, make_instruction
 from functions.attn_func import winclip_attention
 from functions.grid_func import grid_generation
 from functions.key_func import KFS
+from PIL import Image
 from tqdm import tqdm
 from transformers import AutoProcessor, logging
 logging.set_verbosity_error()
+
+
+def qwen_test(model, processor, instruction, image_path, image=None):
+    if image is None:
+        image = Image.open(image_path)
+    image = image.convert('RGB')
+    image.thumbnail((qwen_vlm.IMAGE_SIZE, qwen_vlm.IMAGE_SIZE))
+    return qwen_vlm.generate(model, processor, qwen_vlm.IMAGE_TOKEN + '\n' + instruction, [image], max_new_tokens=64)
 
 
 def main():
@@ -47,8 +58,14 @@ def main():
     todo = [n for n in common.video_names() if not (SCORE_DIR / f"{n}.npy").exists()]
     if todo:
         device = torch.device("cuda")
-        tokenizer, model = load_lvlm(cfg.model_path, device)
-        model.chat = functools.partial(model.chat, processor=AutoProcessor.from_pretrained(f"openbmb/{cfg.model_path}", trust_remote_code=True))
+        if USE_QWEN:
+            qwen_vlm.VLM_PATH = MODEL_PATH
+            model, processor = qwen_vlm.load(device)
+            lvlm = functools.partial(qwen_test, model, processor)
+        else:
+            tokenizer, model = load_lvlm(cfg.model_path, device)
+            model.chat = functools.partial(model.chat, processor=AutoProcessor.from_pretrained(f"openbmb/{cfg.model_path}", trust_remote_code=True))
+            lvlm = functools.partial(lvlm_test, tokenizer, model)
         clip_model, preprocess = clip.load('ViT-B/32', device=device)
         kfs = KFS(cfg.kfs_num, cfg.clip_length, clip_model, preprocess, device)
 
@@ -70,7 +87,7 @@ def main():
                 key_image_path = cp[indice[0]]
                 image_paths = [cp[idx] for idx in indice[1:]]
 
-                response = lvlm_test(tokenizer, model, instruction, key_image_path, None)
+                response = lvlm(instruction, key_image_path, None)
                 max_score = max(max_score, generate_output(response)['score'])
                 if KEY_FRAME_ONLY:
                     continue
@@ -81,8 +98,8 @@ def main():
                 wa_image = winclip_attention(cfg, key_image_path, text_embedding, clip_model, device, cfg.class_adaption, cfg.type_ids[k_i])
                 grid_image = grid_generation(cfg, image_paths, keyword, clip_model, device)
 
-                response_wa = lvlm_test(tokenizer, model, instruction, None, wa_image)
-                response_tc = lvlm_test(tokenizer, model, instruction_tc, None, grid_image)
+                response_wa = lvlm(instruction, None, wa_image)
+                response_tc = lvlm(instruction_tc, None, grid_image)
 
                 max_score_wa = max(max_score_wa, generate_output(response_wa)['score'])
                 max_score_tc = max(max_score_tc, generate_output(response_tc)['score'])
