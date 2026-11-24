@@ -9,8 +9,8 @@ import sklearn.metrics
 DATA_DIR = pathlib.Path('/home/jovyan/work/toyota2026')
 LABEL_DIR = DATA_DIR / 'data/label'
 SPLIT_DIR = DATA_DIR / 'data/splits'
-VIDEO_DIR = DATA_DIR / 'movie'
-VIDEO_EXT = '.mp4'
+VIDEO_DIR = DATA_DIR / 'tracking_src/output_crop_video'
+VIDEO_EXT = '_crop.mp4'
 
 ROOT = pathlib.Path(__file__).resolve().parent
 WORK_DIR = ROOT / 'work'
